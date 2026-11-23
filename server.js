@@ -1,36 +1,39 @@
 /**
- * server.js  –  Movie Mania  –  Express entry point
+ * server.js  –  Movie Mania  –  Entry point
  *
- * Covers (syllabus):
- *   Node.js Basics · HTTP Module · Creating Server · Request/Response
- *   Express Setup · Middleware · Routing · Route Params · Query Params
- *   Body Parsing · REST API Design · CRUD Endpoints · Status Codes
- *   Error Handling Middleware · Custom Middleware · Validation/Sanitization
- *   JWT · Password Hashing · Auth Middleware · Protected Routes
- *   Role-Based Access · File Upload (Multer) · Logging (Morgan)
+ * Covers (Unit 5): MongoDB Setup · Mongoose connection
+ * Covers (Unit 7): Environment Variables
  */
 
 'use strict';
 
-const path    = require('path');
-const http    = require('http');           // Node core HTTP module
-const app     = require('./src/app');      // Express application
-const logger  = require('./src/utils/logger');
+require('dotenv').config();   // load .env before anything else
+
+const http       = require('http');
+const app        = require('./src/app');
+const { connectDB } = require('./src/config/db');
+const logger     = require('./src/utils/logger');
 
 const PORT = process.env.PORT || 3000;
 
-// ── Create HTTP server (wraps Express, keeps Node HTTP module visible) ──
-const server = http.createServer(app);
+async function start() {
+  // Connect to MongoDB (falls back gracefully when MONGO_URI is absent)
+  await connectDB();
 
-server.listen(PORT, () => {
-  logger.info(`Movie Mania API listening on http://localhost:${PORT}`);
-  logger.info(`Static frontend → http://localhost:${PORT}/`);
-});
+  const server = http.createServer(app);
 
-// ── Graceful shutdown ──
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received – shutting down');
-  server.close(() => process.exit(0));
-});
+  server.listen(PORT, () => {
+    logger.info(`Movie Mania API  →  http://localhost:${PORT}`);
+    logger.info(`Frontend         →  http://localhost:${PORT}/`);
+    logger.info(`React dev proxy  →  http://localhost:5173/  (run: cd client && npm run dev)`);
+  });
 
-module.exports = server; // needed by Jest / Supertest
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM – shutting down');
+    server.close(() => process.exit(0));
+  });
+
+  return server;
+}
+
+module.exports = start();

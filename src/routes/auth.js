@@ -1,24 +1,32 @@
 /**
  * routes/auth.js  –  Authentication endpoints
  *
- * Covers: Express Routing · Body Parsing · Validation/Sanitization ·
- *         Password Hashing (bcryptjs) · JWT · Status Codes (syllabus)
+ * Covers (Unit 4): Routing · Body Parsing · Validation · JWT · Password Hashing
+ * Covers (Unit 5): Mongoose model usage · Custom Errors
+ * Covers (Unit 7): Authentication Flow · JWT Storage · Environment Variables
  *
- * POST /api/auth/register   – create account
- * POST /api/auth/login      – sign in, receive JWT
- * GET  /api/auth/me         – get own profile (protected)
+ * POST /api/auth/register
+ * POST /api/auth/login
+ * POST /api/auth/logout     (client-side token drop, server just confirms)
+ * GET  /api/auth/me
  */
 
 'use strict';
 
-const express  = require('express');
-const bcrypt   = require('bcryptjs');
-const { body } = require('express-validator');
+const express      = require('express');
+const { body }     = require('express-validator');
+const mongoose     = require('mongoose');
 
-const userStore    = require('../data/users');
-const { signToken }= require('../utils/jwt');
-const authenticate = require('../middleware/authenticate');
-const validate     = require('../middleware/validate');
+const { signToken }  = require('../utils/jwt');
+const AppError       = require('../utils/AppError');
+const authenticate   = require('../middleware/authenticate');
+const validate       = require('../middleware/validate');
+
+// Use Mongoose model when DB is connected, fall back to in-memory store
+function getStore() {
+  if (mongoose.connection.readyState === 1) return require('../models/User');
+  return require('../data/users');
+}
 
 const router = express.Router();
 
@@ -29,34 +37,36 @@ router.post(
     body('name').trim().notEmpty().withMessage('Name is required'),
     body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
     body('password')
-      .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
-      .matches(/[A-Z]/).withMessage('Password needs an uppercase letter')
-      .matches(/[a-z]/).withMessage('Password needs a lowercase letter')
-      .matches(/[0-9]/).withMessage('Password needs a number')
-      .matches(/[^A-Za-z0-9]/).withMessage('Password needs a special character'),
-    // optional: first registered user becomes admin
-    body('role').optional().isIn(['user', 'admin']).withMessage('Role must be user or admin'),
+      .isLength({ min: 8 })       .withMessage('At least 8 characters')
+      .matches(/[A-Z]/)           .withMessage('One uppercase letter required')
+      .matches(/[a-z]/)           .withMessage('One lowercase letter required')
+      .matches(/[0-9]/)           .withMessage('One number required')
+      .matches(/[^A-Za-z0-9]/)   .withMessage('One special character required'),
+    body('role').optional().isIn(['user', 'admin']),
   ],
   validate,
   async (req, res, next) => {
     try {
       const { name, email, password, role } = req.body;
+      const Store = getStore();
 
-      if (userStore.findByEmail(email)) {
-        return res.status(409).json({ error: 'Email already registered' });
+      // ── Mongoose path ────────────────────────────────────────────────────────
+      if (Store.prototype && Store.prototype.constructor === mongoose.Model.prototype.constructor) {
+        const exists = await Store.findOne({ email });
+        if (exists) return next(new AppError('Email already registered', 409));
+
+        const user  = await Store.create({ name, email, password, role });
+        const token = signToken({ id: user._id, email: user.email, role: user.role });
+        return res.status(201).json({ message: 'Account created', token, user });
       }
 
-      // Password Hashing – covers syllabus item
+      // ── In-memory fallback ───────────────────────────────────────────────────
+      const bcrypt = require('bcryptjs');
+      if (Store.findByEmail(email)) return next(new AppError('Email already registered', 409));
       const passwordHash = await bcrypt.hash(password, 12);
-      const user = userStore.create({ name, email, passwordHash, role });
-
+      const user  = Store.create({ name, email, passwordHash, role });
       const token = signToken({ id: user.id, email: user.email, role: user.role });
-
-      res.status(201).json({
-        message: 'Account created',
-        token,
-        user: userStore.safeUser(user),
-      });
+      return res.status(201).json({ message: 'Account created', token, user: Store.safeUser(user) });
     } catch (err) {
       next(err);
     }
@@ -74,35 +84,54 @@ router.post(
   async (req, res, next) => {
     try {
       const { email, password } = req.body;
+      const Store = getStore();
 
-      const user = userStore.findByEmail(email);
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid email or password' });
+      // ── Mongoose path ────────────────────────────────────────────────────────
+      if (Store.findByEmail && Store.prototype instanceof mongoose.Model) {
+        const user = await Store.findByEmail(email);   // static method, includes password
+        if (!user || !(await user.comparePassword(password))) {
+          return next(new AppError('Invalid email or password', 401));
+        }
+        const token = signToken({ id: user._id, email: user.email, role: user.role });
+        user.password = undefined;  // hide before serialising
+        return res.json({ message: 'Signed in', token, user });
       }
 
-      const match = await bcrypt.compare(password, user.passwordHash);
-      if (!match) {
-        return res.status(401).json({ error: 'Invalid email or password' });
+      // ── In-memory fallback ───────────────────────────────────────────────────
+      const bcrypt = require('bcryptjs');
+      const user   = Store.findByEmail(email);
+      if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+        return next(new AppError('Invalid email or password', 401));
       }
-
       const token = signToken({ id: user.id, email: user.email, role: user.role });
-
-      res.json({
-        message: 'Signed in',
-        token,
-        user: userStore.safeUser(user),
-      });
+      return res.json({ message: 'Signed in', token, user: Store.safeUser(user) });
     } catch (err) {
       next(err);
     }
   }
 );
 
+// ── POST /api/auth/logout ─────────────────────────────────────────────────────
+// JWT is stateless – the client drops the token. Server just confirms.
+router.post('/logout', authenticate, (_req, res) => {
+  res.json({ message: 'Logged out. Please discard your token on the client.' });
+});
+
 // ── GET /api/auth/me  (protected) ─────────────────────────────────────────────
-router.get('/me', authenticate, (req, res) => {
-  const user = userStore.findById(req.user.id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json(userStore.safeUser(user));
+router.get('/me', authenticate, async (req, res, next) => {
+  try {
+    const Store = getStore();
+    if (Store.prototype instanceof mongoose.Model) {
+      const user = await Store.findById(req.user.id);
+      if (!user) return next(new AppError('User not found', 404));
+      return res.json(user);
+    }
+    const user = Store.findById(req.user.id);
+    if (!user) return next(new AppError('User not found', 404));
+    res.json(Store.safeUser(user));
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;
