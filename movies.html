@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recommendations · Movie Mania</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body data-page="movies">
+
+  <header class="topbar">
+    <a class="brand" href="movies.html">MOVIE <span>MANIA</span></a>
+    <div class="account">
+      <span id="userEmail"></span>
+      <button id="logout" class="button">Log out</button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ════════════════════════════════
+         RECOMMENDATION FORM
+    ════════════════════════════════ -->
+    <section class="rec-banner">
+      <div class="rec-banner-inner">
+        <p class="eyebrow">PERSONALISED FOR YOU</p>
+        <h1 class="rec-heading">Find your next watch</h1>
+        <p class="rec-sub">Tell us what you're in the mood for and we'll find the best matches.</p>
+      </div>
+    </section>
+
+    <div class="rec-wrap">
+      <form id="recForm" class="rec-card">
+
+        <div class="rec-field">
+          <label>Genre</label>
+          <div class="chip-group" id="genreChips">
+            <button type="button" class="chip active" data-value="">All</button>
+            <button type="button" class="chip" data-value="Action">🎬 Action</button>
+            <button type="button" class="chip" data-value="Comedy">😂 Comedy</button>
+            <button type="button" class="chip" data-value="Romance">❤️ Romance</button>
+            <button type="button" class="chip" data-value="Thriller">🔪 Thriller</button>
+          </div>
+          <input type="hidden" id="genre" value="">
+        </div>
+
+        <div class="rec-field">
+          <label>Era</label>
+          <div class="chip-group" id="eraChips">
+            <button type="button" class="chip active" data-value="">Any year</button>
+            <button type="button" class="chip" data-value="2026">2026</button>
+            <button type="button" class="chip" data-value="2025">2025</button>
+            <button type="button" class="chip" data-value="2024">2024</button>
+          </div>
+          <input type="hidden" id="era" value="">
+        </div>
+
+        <div class="rec-field">
+          <label>Minimum rating — <span class="rating-val" id="ratingLabel">6.0</span> ⭐</label>
+          <div class="slider-track">
+            <span class="slider-min">5</span>
+            <input id="minRating" type="range" min="5" max="9" step="0.5" value="6" class="rec-slider">
+            <span class="slider-max">9</span>
+          </div>
+        </div>
+
+        <div class="rec-field">
+          <label for="recSearch">Search title <span class="opt-label">(optional)</span></label>
+          <input id="recSearch" type="search" placeholder="e.g. Stree, Pushpa…" class="rec-text-input">
+        </div>
+
+        <button type="submit" class="rec-submit-btn">Get Recommendations →</button>
+      </form>
+    </div>
+
+    <!-- ── Results ── -->
+    <section id="resultsSection" class="results-section hidden">
+      <div class="results-inner">
+        <div class="results-header">
+          <h2 id="resultsTitle">Your picks</h2>
+          <button id="resetBtn" type="button" class="button">← New search</button>
+        </div>
+        <p id="message" class="note" aria-live="polite"></p>
+        <div id="movieList" class="movie-grid"></div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════
+         SMART CARD SWIPER
+    ════════════════════════════════ -->
+    <section class="swiper-section">
+
+      <div class="section-divider">
+        <span>OR</span>
+      </div>
+
+      <div class="swiper-intro">
+        <p class="eyebrow">QUICK PICKS</p>
+        <h2 class="swiper-heading">Like it or skip it?</h2>
+        <p class="swiper-sub">Go through every movie one by one and save the ones you want to watch.</p>
+        <button id="startSwiper" class="swiper-start-btn">Start Swiping ›</button>
+      </div>
+
+      <div id="swiperDeck" class="swiper-deck hidden">
+        <p class="swiper-progress" id="swiperProgress"></p>
+        <div class="swiper-card-wrap">
+          <div class="swiper-card" id="swiperCard">
+            <div class="swiper-poster" id="swiperPoster">
+              <span class="poster-fallback" id="swiperFallback"></span>
+              <img id="swiperImg" src="" alt="">
+            </div>
+            <span class="swiper-genre-badge" id="swiperGenre"></span>
+            <div class="swiper-overlay">
+              <h3 id="swiperTitle"></h3>
+              <p id="swiperMeta" class="swiper-meta"></p>
+              <span id="swiperRating" class="swiper-rating"></span>
+            </div>
+          </div>
+        </div>
+        <div class="swiper-actions">
+          <button id="skipBtn" class="swiper-btn skip">⏭&nbsp; Skip</button>
+          <button id="likeBtn" class="swiper-btn like">👍&nbsp; Like</button>
+        </div>
+      </div>
+
+      <div id="swiperSummary" class="swiper-summary hidden">
+        <h3>Your liked movies</h3>
+        <p id="summaryNote" class="note"></p>
+        <div id="summaryList" class="movie-grid summary-grid"></div>
+        <button id="restartSwiper" class="swiper-start-btn" style="margin-top:32px;">Swipe again ›</button>
+      </div>
+
+    </section>
+
+    <footer class="page-footer">Movie Mania · Student project demo</footer>
+
+  </main>
+</body>
+</html>
