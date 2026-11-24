@@ -10,6 +10,7 @@
     "seed": "node src/seed.js",
     "import-csv": "node src/importCsv.js",
     "fetch-posters": "node src/fetchPosters.js",
+    "import-tmdb": "node src/importTmdb.js",
     "test": "node --experimental-vm-modules node_modules/.bin/jest --forceExit"
   },
   "dependencies": {
